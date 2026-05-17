@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Stock Watcher - Fries91 Starter
 // @namespace    Fries91.Torn.StockWatcher
-// @version      0.2.0
+// @version      0.2.1
 // @description  Torn stock watcher overlay with predicted return simulator.
 // @author       Fries91
 // @match        https://www.torn.com/*
