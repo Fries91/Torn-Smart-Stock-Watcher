@@ -6,7 +6,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 APP_NAME = "Torn Stock Watcher"
@@ -405,7 +405,8 @@ def home():
             "/api/learn",
             "/api/learning_status",
             "/api/auto_status",
-            "/api/auto_snapshot_once"
+            "/api/auto_snapshot_once",
+            "/static/torn-stock-watcher.user.js"
         ]
     })
 
@@ -691,6 +692,11 @@ def learning_status():
         "outcomes": {r["outcome"]: r["c"] for r in recent},
         "weights": get_weights()
     })
+
+
+@app.route("/static/<path:filename>")
+def serve_static_file(filename):
+    return send_from_directory("static", filename)
 
 
 @app.route("/api/auto_status")
