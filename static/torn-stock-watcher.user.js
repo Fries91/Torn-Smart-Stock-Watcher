@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         Torn Stock Watcher - Fries91 Starter
 // @namespace    Fries91.Torn.StockWatcher
-// @version      0.1.0
+// @version      0.2.0
 // @description  Torn stock watcher overlay with predicted return simulator.
 // @author       Fries91
 // @match        https://www.torn.com/*
 // @match        https://*.torn.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
+// @updateURL    https://torn-smart-stock-watcher.onrender.com/static/torn-stock-watcher.user.js
+// @downloadURL  https://torn-smart-stock-watcher.onrender.com/static/torn-stock-watcher.user.js
 // @grant        GM_setValue
 // @connect      *
 // ==/UserScript==
@@ -19,7 +21,7 @@
   const K_API = APP + 'api_key';
   const K_BACKEND = APP + 'backend_url';
 
-  const DEFAULT_BACKEND = 'https://YOUR-RENDER-URL.onrender.com';
+  const DEFAULT_BACKEND = 'https://torn-smart-stock-watcher.onrender.com';
 
   const css = `
     #tswBtn{position:fixed;left:14px;bottom:72px;z-index:999999;width:44px;height:44px;border-radius:14px;
