@@ -43,6 +43,10 @@ def now_ts() -> int:
     return int(time.time())
 
 
+def today_key() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
 def db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -63,6 +67,17 @@ def init_db():
         )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_snap_stock_ts ON snapshots(stock_id, ts)")
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS daily_picks (
+            day TEXT PRIMARY KEY,
+            ts INTEGER NOT NULL,
+            stock_id TEXT NOT NULL,
+            acronym TEXT NOT NULL,
+            name TEXT NOT NULL,
+            pick_json TEXT NOT NULL,
+            reason TEXT NOT NULL
+        )
+        """)
         conn.execute("""
         CREATE TABLE IF NOT EXISTS predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -301,6 +316,92 @@ def get_window_price(rows, cutoff_ts):
     return rows[0]["price"] if rows else None
 
 
+
+def get_locked_today_pick():
+    init_db()
+    day = today_key()
+    with db() as conn:
+        row = conn.execute("SELECT * FROM daily_picks WHERE day = ?", (day,)).fetchone()
+    if not row:
+        return None
+    try:
+        pick = json.loads(row["pick_json"])
+    except Exception:
+        pick = None
+    return {
+        "day": row["day"],
+        "ts": row["ts"],
+        "stock_id": row["stock_id"],
+        "acronym": row["acronym"],
+        "name": row["name"],
+        "pick": pick,
+        "reason": row["reason"]
+    }
+
+
+def save_locked_today_pick(pick, reason):
+    init_db()
+    day = today_key()
+    with db() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO daily_picks
+            (day, ts, stock_id, acronym, name, pick_json, reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            day,
+            now_ts(),
+            pick["stock_id"],
+            pick["acronym"],
+            pick["name"],
+            json.dumps(pick),
+            reason
+        ))
+
+
+def choose_or_keep_today_pick(items):
+    """
+    Keeps one pick for the day.
+    - If no pick exists today, saves the current best 24h return pick.
+    - If a better stock appears with meaningfully higher target ROI/score, switches.
+    - Otherwise it keeps the original pick stable.
+    """
+    if not items:
+        return None, "No stock analysis available yet."
+
+    best = items[0]
+    locked = get_locked_today_pick()
+
+    if not locked or not locked.get("pick"):
+        save_locked_today_pick(best, "First best 24h return pick locked for today.")
+        return best, "First best 24h return pick locked for today."
+
+    current = locked["pick"]
+    current_id = str(current.get("stock_id"))
+    best_id = str(best.get("stock_id"))
+
+    refreshed_current = next((x for x in items if str(x["stock_id"]) == current_id), current)
+
+    best_target = float(best.get("target_pct", 0))
+    current_target = float(refreshed_current.get("target_pct", current.get("target_pct", 0)))
+    best_score = float(best.get("score", 0))
+    current_score = float(refreshed_current.get("score", current.get("score", 0)))
+
+    target_edge = best_target - current_target
+    score_edge = best_score - current_score
+
+    # Only switch if another stock is clearly better for the 24h return.
+    # This keeps Today's Pick from jumping around constantly.
+    if best_id != current_id and target_edge >= 0.75 and score_edge >= 2.0:
+        save_locked_today_pick(best, "Switched because a better 24h return candidate appeared.")
+        return best, "Switched because a better 24h return candidate appeared."
+
+    if isinstance(refreshed_current, dict):
+        save_locked_today_pick(refreshed_current, "Stayed with the locked 24h pick.")
+        return refreshed_current, "Stayed with the locked 24h pick."
+
+    return current, "Stayed with the locked 24h pick."
+
+
 def stock_analysis(hours=24):
     since = now_ts() - (hours * 3600)
     with db() as conn:
@@ -447,13 +548,15 @@ def stocks():
 def pick():
     init_db()
     items = stock_analysis()
-    best = items[0] if items else None
+    selected, reason = choose_or_keep_today_pick(items)
+    locked = get_locked_today_pick()
     return jsonify({
         "ok": True,
-        "pick": best,
-        "message": "Prediction is a scoring estimate, not guaranteed profit."
+        "pick": selected,
+        "locked": locked,
+        "reason": reason,
+        "message": "Today's Pick is one locked 24h return pick. It only switches if a clearly better candidate appears."
     })
-
 
 @app.route("/api/simulate")
 def simulate():
@@ -498,6 +601,17 @@ def simulate():
     })
 
 
+@app.route("/api/reset_today_pick", methods=["POST", "GET"])
+def reset_today_pick():
+    init_db()
+    day = today_key()
+    with db() as conn:
+        conn.execute("DELETE FROM daily_picks WHERE day = ?", (day,))
+    items = stock_analysis()
+    selected, reason = choose_or_keep_today_pick(items)
+    return jsonify({"ok": True, "pick": selected, "reason": "Today's locked pick was reset and recalculated."})
+
+
 @app.route("/api/record_prediction", methods=["POST"])
 def record_prediction():
     """
@@ -509,7 +623,7 @@ def record_prediction():
     if not items:
         return jsonify({"ok": False, "error": "No analysis available yet."}), 404
 
-    x = items[0]
+    x, _reason = choose_or_keep_today_pick(items)
     with db() as conn:
         conn.execute("""
             INSERT INTO predictions
