@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Stock Watcher - Fries91 Starter
 // @namespace    Fries91.Torn.StockWatcher
-// @version      0.2.8
+// @version      0.2.9
 // @description  Torn stock watcher overlay with predicted return simulator.
 // @author       Fries91
 // @match        https://www.torn.com/*
@@ -27,12 +27,14 @@
   const DEFAULT_BACKEND = 'https://torn-smart-stock-watcher.onrender.com';
 
   const css = `
-    #tswBtn{position:fixed!important;left:14px!important;bottom:72px!important;z-index:2147483647!important;width:44px!important;height:44px!important;border-radius:14px!important;
-      border:1px solid rgba(255,255,255,.35)!important;background:#121827!important;color:#fff!important;font-size:18px!important;
-      box-shadow:0 8px 24px rgba(0,0,0,.45)!important;display:flex!important;align-items:center!important;justify-content:center!important;
-      flex-direction:column!important;line-height:14px!important;padding:0!important;margin:0!important;visibility:visible!important;opacity:1!important}
-    #tswBtn .tswIcon{font-size:18px!important;line-height:18px!important;height:18px!important}
-    #tswBtn .tswMini{font-size:8px!important;line-height:9px!important;font-weight:900!important;letter-spacing:.2px!important;color:#bcd3ff!important}
+    #tswBtn{position:fixed!important;left:8px!important;bottom:8px!important;z-index:2147483647!important;
+      width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;border-radius:8px!important;
+      border:1px solid rgba(255,255,255,.75)!important;background:rgba(18,24,39,.96)!important;color:#fff!important;
+      font-size:23px!important;line-height:46px!important;display:flex!important;align-items:center!important;justify-content:center!important;
+      text-align:center!important;box-shadow:0 0 0 2px rgba(47,107,255,.55),0 8px 24px rgba(0,0,0,.55)!important;
+      padding:0!important;margin:0!important;visibility:visible!important;opacity:1!important;cursor:pointer!important}
+    #tswBtn:active{transform:scale(.96)!important}
+    #tswBtn:hover{background:rgba(25,35,58,.98)!important}
 
     #tswPanel{position:fixed;left:12px;right:12px;top:70px;max-width:760px;margin:auto;z-index:1000000;
       background:#0e1422;color:#eaf0ff;border:1px solid rgba(255,255,255,.14);border-radius:18px;
@@ -308,6 +310,7 @@
   function mountButton() {
     try {
       addStyle();
+
       const host = document.body || document.documentElement;
       if (!host) return;
 
@@ -316,8 +319,9 @@
         b = document.createElement('button');
         b.id = 'tswBtn';
         b.type = 'button';
+        b.textContent = '📈';
         b.title = 'Torn Stock Watcher';
-        b.innerHTML = '<span class="tswIcon">📈</span><span class="tswMini">STK</span>';
+        b.setAttribute('aria-label', 'Torn Stock Watcher');
         b.onclick = function(e) {
           e.preventDefault();
           e.stopPropagation();
@@ -332,16 +336,30 @@
       b.style.display = 'flex';
       b.style.visibility = 'visible';
       b.style.opacity = '1';
+      b.style.left = '8px';
+      b.style.bottom = '8px';
+      b.style.zIndex = '2147483647';
     } catch (e) {
-      console.log('[Torn Stock Watcher] mount error', e);
+      console.log('[Torn Stock Watcher] icon mount error', e);
     }
   }
 
   function bootMount() {
     mountButton();
-    document.addEventListener('DOMContentLoaded', mountButton);
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mountButton);
+    }
+
     window.addEventListener('load', mountButton);
-    setInterval(mountButton, 1000);
+    window.addEventListener('hashchange', mountButton);
+    window.addEventListener('popstate', mountButton);
+
+    setInterval(mountButton, 800);
+
+    try {
+      new MutationObserver(() => mountButton()).observe(document.documentElement, {childList:true, subtree:true});
+    } catch (e) {}
   }
 
   bootMount();
