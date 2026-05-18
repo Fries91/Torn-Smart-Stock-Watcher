@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Stock Watcher - Fries91 Starter
 // @namespace    Fries91.Torn.StockWatcher
-// @version      0.2.3
+// @version      0.2.4
 // @description  Torn stock watcher overlay with predicted return simulator.
 // @author       Fries91
 // @match        https://www.torn.com/*
@@ -24,9 +24,11 @@
   const DEFAULT_BACKEND = 'https://torn-smart-stock-watcher.onrender.com';
 
   const css = `
-    #tswBtn{width:28px;height:28px;min-width:28px;min-height:28px;margin:0 3px;padding:0;border:0;border-radius:6px;background:transparent;color:#fff;font-size:20px;line-height:28px;text-align:center;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;cursor:pointer;box-shadow:none;opacity:.96}
-    #tswBtn:hover{background:rgba(255,255,255,.10)}
-    .tswFallbackBtn{position:fixed!important;left:14px!important;bottom:72px!important;z-index:999999!important;width:44px!important;height:44px!important;border-radius:14px!important;border:1px solid rgba(255,255,255,.25)!important;background:#121827!important;font-size:22px!important;box-shadow:0 8px 24px rgba(0,0,0,.35)!important}
+    #tswBtn{position:fixed;left:12px;bottom:92px;z-index:999999;width:36px;height:36px;min-width:36px;min-height:36px;
+      border-radius:12px;border:1px solid rgba(255,255,255,.22);background:#121827;color:#fff;font-size:18px;line-height:36px;
+      display:flex;align-items:center;justify-content:center;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.38);cursor:pointer;padding:0}
+    #tswBtn:hover{background:#19233a}
+
     #tswPanel{position:fixed;left:12px;right:12px;top:70px;max-width:760px;margin:auto;z-index:1000000;
       background:#0e1422;color:#eaf0ff;border:1px solid rgba(255,255,255,.14);border-radius:18px;
       box-shadow:0 20px 60px rgba(0,0,0,.55);font-family:Arial,sans-serif;overflow:hidden}
@@ -298,41 +300,9 @@
     }, 100);
   };
 
-  function findTornHeaderAnchor() {
-    const selectors = [
-      '#topHeaderBanner div[class*="icons"]',
-      '#top-page-links-list',
-      '#header-root div[class*="icons"]',
-      'div[class*="header"] div[class*="icons"]',
-      'div[class*="user"] div[class*="icons"]',
-      'div[class*="gender"]',
-      'a[href*="preferences.php"]',
-      'a[href*="profile.php"]'
-    ];
+  function mountButton() {
+    addStyle();
 
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      if (sel.includes('gender')) return el.parentElement || el;
-      if (el.parentElement && el.tagName === 'A') return el.parentElement;
-      return el;
-    }
-
-    const possible = [...document.querySelectorAll('a,button,span,div')].filter(el => {
-      const txt = (el.textContent || '').trim().toLowerCase();
-      const href = (el.getAttribute && el.getAttribute('href') || '').toLowerCase();
-      return href.includes('preferences') || href.includes('profile') || txt === '♂' || txt === '♀';
-    });
-
-    for (const el of possible) {
-      const parent = el.parentElement;
-      if (parent && parent.children.length <= 12) return parent;
-    }
-
-    return null;
-  }
-
-  function createButton() {
     let b = document.getElementById('tswBtn');
     if (!b) {
       b = document.createElement('button');
@@ -343,25 +313,12 @@
       b.setAttribute('aria-label', 'Torn Stock Watcher');
       b.onclick = showPanel;
     }
-    return b;
-  }
 
-  function mountButton() {
-    addStyle();
-    const b = createButton();
-    const anchor = findTornHeaderAnchor();
-
-    if (anchor) {
-      b.classList.remove('tswFallbackBtn');
-      if (b.parentElement !== anchor) anchor.appendChild(b);
-      return;
+    if (!document.body.contains(b)) {
+      document.body.appendChild(b);
     }
-
-    b.classList.add('tswFallbackBtn');
-    if (!document.body.contains(b)) document.body.appendChild(b);
   }
 
   mountButton();
   setInterval(mountButton, 1200);
-  new MutationObserver(() => mountButton()).observe(document.documentElement, {childList:true, subtree:true});
 })();
