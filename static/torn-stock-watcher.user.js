@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Stock Watcher - Fries91 Starter
 // @namespace    Fries91.Torn.StockWatcher
-// @version      0.2.1
+// @version      0.2.2
 // @description  Torn stock watcher overlay with predicted return simulator.
 // @author       Fries91
 // @match        https://www.torn.com/*
@@ -200,7 +200,7 @@
         return;
       }
       c.innerHTML = `
-        <div class="tswCard"><b>All Stocks</b><div class="tswMuted">Ranked by momentum score.</div></div>
+        <div class="tswCard"><b>All Stocks</b><div class="tswMuted">Ranked by best 24h return score.</div></div>
         ${res.items.map(x => `
           <div class="tswCard">
             <div class="tswRow"><b>${x.acronym}</b><span>${money(x.current_price)}</span></div>
@@ -208,7 +208,12 @@
             <div class="tswRow"><span>Score</span><span>${x.score}</span></div>
             <div class="tswRow"><span>Target</span><span>${money(x.target_price)} / ${pct(x.target_pct)}</span></div>
             <div class="tswRow"><span>Risk</span><span>${x.risk}</span></div>
-            <button class="tswBtn2" onclick="window.tswSimStock('${x.acronym}')">Simulate</button>
+            <button class="tswBtn2" onclick="window.tswOpenInlineSim('${x.acronym}')">Simulate</button>
+            <div id="inlineSim_${x.acronym}" style="display:none;margin-top:8px">
+              <input class="tswInput" id="inlineAmount_${x.acronym}" inputmode="numeric" placeholder="Amount to invest">
+              <button class="tswBtn2" onclick="window.tswRunInlineSim('${x.acronym}')">Calculate</button>
+              <div id="inlineOut_${x.acronym}"></div>
+            </div>
           </div>
         `).join('')}
       `;
@@ -230,8 +235,9 @@
     const x = res.pick;
     c.innerHTML = `
       <div class="tswCard">
-        <b>📈 Today’s Best Pick: ${x.acronym}</b>
+        <b>📈 Today’s Locked 24h Pick: ${x.acronym}</b>
         <div class="tswMuted">${x.name}</div>
+        <div class="tswMuted">${res.reason || 'Locked for today unless a clearly better 24h return appears.'}</div>
         <div class="tswGrid">
           <div class="tswCard"><div>Current</div><b>${money(x.current_price)}</b></div>
           <div class="tswCard"><div>Target</div><b>${money(x.target_price)}</b><div>${pct(x.target_pct)}</div></div>
@@ -243,10 +249,18 @@
         <b>💰 Investment Simulator</b>
         <input class="tswInput" id="tswAmount" inputmode="numeric" placeholder="Amount to invest, ex: 100000000">
         <button class="tswBtn2" id="tswSim">Calculate Predicted Return</button>
+        <button class="tswBtn2 tswBtnBad" id="tswResetPick">Reset Today’s Pick</button>
         <div id="tswSimOut"></div>
       </div>
     `;
     document.getElementById('tswSim').onclick = () => simulate(x.acronym);
+    document.getElementById('tswResetPick').onclick = async () => {
+      const out = document.getElementById('tswSimOut');
+      out.innerHTML = '<p class="tswMuted">Resetting today’s pick...</p>';
+      const reset = await api('/api/reset_today_pick');
+      out.innerHTML = reset.ok ? '<p class="tswGood">Today’s pick reset. Reloading...</p>' : '<p class="tswBad">Reset failed.</p>';
+      setTimeout(() => renderTab('pick'), 600);
+    };
   }
 
   async function simulate(stock) {
